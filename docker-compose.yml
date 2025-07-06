@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_db_volume:/var/lib/postgresql/data
+      - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  airflow-init:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+    environment: &airflow-common-env
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=81HqDtbqAywKSOumSHA3BhWNOdQ26slT6K0YaZeZyPs=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=6b8f56df540233c6aec32b155c22d2494f3cf7c3b57d250bec13e58066d1dc1a
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init
+        airflow users create \
+          --username admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com \
+          --password admin
+        echo "Airflow initialization completed!"
+
+  airflow-webserver:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    environment: *airflow-common-env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+    command: webserver
+
+  airflow-scheduler:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    environment: *airflow-common-env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+    command: scheduler
+
+  airflow-worker:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+    environment: *airflow-common-env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+    command: celery worker
+
+volumes:
+  postgres_db_volume:
