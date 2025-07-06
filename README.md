@@ -451,8 +451,6 @@ FROM crypto_data WHERE DATE(extracted_at) = CURRENT_DATE;
 
 ## Future Improvements
 
-- **Secrets Management:** Move secrets from the `.env` file to a more secure backend like HashiCorp Vault or AWS Secrets Manager.
 - **CI/CD:** Implement a GitHub Actions workflow to automatically run tests, lint code, and build the Docker image on pull requests.
-- **Advanced Analytics:** Enhance the correlation analysis to account for time lags (e.g., does a spike in Reddit posts lead to a spike in GitHub commits a week later?).
 - **Alerting:** Integrate with Slack or email to send notifications when the data monitoring pipeline detects an issue.
 - **Visualization:** Add a tool like Superset or Metabase to create dashboards on top of the PostgreSQL data warehouse. 
